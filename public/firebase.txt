@@ -1,0 +1,8 @@
+const firebaseConfig = {
+  apiKey: "AIzaSyBbTsM5_sXlv812LeL2P3qjz03jduA5wfY",
+  authDomain: "split-sync-p.firebaseapp.com",
+  projectId: "split-sync-p",
+  storageBucket: "split-sync-p.firebasestorage.app",
+  messagingSenderId: "62467912889",
+  appId: "1:62467912889:web:08049b6f3e5d5a2b371768"
+};
