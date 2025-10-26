@@ -3,10 +3,11 @@ import Sidebar from "../components/Sidebar";
 import Dashboard from "../components/Dashboard";
 import PoolItem from "../components/PoolItem";
 import AddPoolModal from "../components/AddPoolModal";
+import DeleteAccountModal from "../components/DeleteAccountModal";
+import InfoModal from "../components/InfoModal"; // <-- 1. IMPORT
 import { useAuth } from "../context/AuthContext";
 import { db } from "../firebase";
 import {
-  // CORRECTED: Removed ChevronRight from here
   collection,
   query,
   where,
@@ -16,7 +17,7 @@ import {
   updateDoc,
   arrayUnion,
 } from "firebase/firestore";
-import { Plus, UserPlus, ChevronRight } from "lucide-react"; // CORRECTED: Added ChevronRight here and removed unused Menu
+import { Plus, UserPlus, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Home() {
@@ -27,55 +28,78 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [friendEmail, setFriendEmail] = useState("");
   const [friendError, setFriendError] = useState("");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed for both desktop/mobile
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  const { currentUser } = useAuth();
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Helper: get pool ID based on 2 UIDs
+  // --- 2. ADD NEW STATE ---
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const { currentUser, deleteUserAccount } = useAuth();
+
+  // (getPoolId function is unchanged)
   const getPoolId = (uid1, uid2) => [uid1, uid2].sort().join("_");
 
-  // Add friend
+  // --- 3. MODIFY handleAddFriend ---
   const handleAddFriend = async (e) => {
     e.preventDefault();
-    if (friendEmail === currentUser.email)
+    if (!currentUser) return setFriendError("You must be logged in.");
+    if (friendEmail === currentUser.email) {
       return setFriendError("You cannot add yourself as a friend.");
+    }
     setFriendError("");
 
     try {
       const usersRef = collection(db, "users");
       const q = query(usersRef, where("email", "==", friendEmail));
       const querySnapshot = await getDocs(q);
-      if (querySnapshot.empty) return setFriendError("User not found.");
+
+      if (querySnapshot.empty) {
+        return setFriendError("User not found.");
+      }
 
       const friendData = querySnapshot.docs[0].data();
 
-      const userDocRef = doc(db, "users", currentUser.uid);
-      await updateDoc(userDocRef, {
-        friends: arrayUnion(friendData.uid),
+      if (currentUser.friends?.includes(friendData.uid)) {
+        return setFriendError("You are already friends.");
+      }
+      if (currentUser.sentRequests?.includes(friendData.uid)) {
+        return setFriendError("You have already sent a request to this user.");
+      }
+      if (currentUser.pendingRequests?.includes(friendData.uid)) {
+        return setFriendError(
+          "This user has already sent you a request. Check your dashboard!"
+        );
+      }
+
+      const myDocRef = doc(db, "users", currentUser.uid);
+      await updateDoc(myDocRef, {
+        sentRequests: arrayUnion(friendData.uid),
       });
 
       const friendDocRef = doc(db, "users", friendData.uid);
       await updateDoc(friendDocRef, {
-        friends: arrayUnion(currentUser.uid),
+        pendingRequests: arrayUnion(currentUser.uid),
       });
 
       setFriendEmail("");
-      alert("Friend added!");
+      // --- HERE is the change ---
+      setSuccessMessage("Friend request sent!"); // <-- Replaces alert()
     } catch (err) {
-      setFriendError("Failed to add friend. " + err.message);
+      setFriendError("Failed to send request. " + err.message);
     }
   };
 
-  // Listen for pool updates
+  // (useEffect for pool updates is unchanged)
   useEffect(() => {
     if (!selectedFriend || !currentUser) {
       setExpenses([]);
       return;
     }
-
     const newPoolId = getPoolId(currentUser.uid, selectedFriend.uid);
     setPoolId(newPoolId);
-
     const poolDocRef = doc(db, "pools", newPoolId);
     const unsubscribe = onSnapshot(poolDocRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -88,17 +112,37 @@ export default function Home() {
         setExpenses([]);
       }
     });
-
     return () => unsubscribe();
   }, [selectedFriend, currentUser]);
 
-  const renderContent = () => {
-    if (activeView === "dashboard") return <Dashboard />;
+  // (Delete modal handlers are unchanged)
+  const handleOpenDeleteModal = () => {
+    setDeleteError("");
+    setIsDeleteModalOpen(true);
+  };
 
+  const handleConfirmDelete = async () => {
+    setDeleteError("");
+    setDeleteLoading(true);
+    try {
+      await deleteUserAccount();
+      setIsDeleteModalOpen(false);
+    } catch (err) {
+      setDeleteError(`Failed to delete account. ${err.message}`);
+    }
+    setDeleteLoading(false);
+  };
+
+  const renderContent = () => {
+    if (activeView === "dashboard") {
+      return <Dashboard onOpenDeleteModal={handleOpenDeleteModal} />;
+    }
+
+    // (Pool View render is unchanged)
     return (
       <div className="p-4 md:p-8">
         <div className="p-4 mb-6 bg-white rounded-lg shadow-md dark:bg-gray-800">
-          <h3 className="mb-2 font-semibold">Connect with a Friend</h3>
+          <h3 className="mb-2 font-semibold">Send a Friend Request</h3>
           <form onSubmit={handleAddFriend} className="flex gap-2">
             <input
               type="email"
@@ -171,7 +215,7 @@ export default function Home() {
 
   return (
     <div className="relative h-screen w-full overflow-hidden">
-      {/* Blur background when sidebar open */}
+      {/* (Main content, sidebar, and floating button are unchanged) */}
       <motion.main
         animate={{ filter: isSidebarOpen ? "blur(5px)" : "blur(0px)" }}
         transition={{ duration: 0.3 }}
@@ -180,11 +224,9 @@ export default function Home() {
         {renderContent()}
       </motion.main>
 
-      {/* Sidebar overlay + animation */}
       <AnimatePresence>
         {isSidebarOpen && (
           <>
-            {/* Backdrop blur overlay */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -192,7 +234,6 @@ export default function Home() {
               onClick={() => setIsSidebarOpen(false)}
               className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
             />
-            {/* Floating Sidebar */}
             <motion.div
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
@@ -206,13 +247,13 @@ export default function Home() {
                 onSelectFriend={setSelectedFriend}
                 isOpen={isSidebarOpen}
                 setIsOpen={setIsSidebarOpen}
+                selectedFriend={selectedFriend}
               />
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
-      {/* Floating toggle button (always visible) */}
       <button
         onClick={() => setIsSidebarOpen(true)}
         className="fixed bottom-5 left-5 z-30 p-3 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700"
@@ -220,12 +261,27 @@ export default function Home() {
         <ChevronRight size={22} />
       </button>
 
-      {/* Add Expense Modal */}
+      {/* (AddPoolModal and DeleteAccountModal are unchanged) */}
       <AddPoolModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         friendEmail={selectedFriend?.email}
         friendUid={selectedFriend?.uid}
+      />
+
+      <DeleteAccountModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirmDelete={handleConfirmDelete}
+        loading={deleteLoading}
+        error={deleteError}
+      />
+
+      {/* --- 4. RENDER THE NEW MODAL --- */}
+      <InfoModal
+        isOpen={!!successMessage} // Show modal if successMessage is not empty
+        onClose={() => setSuccessMessage("")} // Clear message on close
+        message={successMessage}
       />
     </div>
   );
