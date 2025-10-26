@@ -318,7 +318,7 @@ export default function Home() {
             >
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className="p-2 bg-white rounded-full shadow dark:bg-gray-800"
+                className="p-2 bg-white rounded-full shadow dark:bg-blue-600"
               >
                 <ChevronRight size={24} />
               </button>
