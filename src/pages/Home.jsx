@@ -306,8 +306,7 @@ export default function Home() {
       )}
 
       {/* Main Content */}
-      <main className="flex-grow h-full overflow-y-auto">
-        {/* --- CHANGE 2: Replaced button and moved to bottom-left --- */}
+      <main className="flex-grow overflow-y-auto">
         <AnimatePresence>
           {!isSidebarOpen && (
             <motion.div
