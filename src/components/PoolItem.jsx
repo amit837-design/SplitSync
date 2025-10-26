@@ -14,7 +14,6 @@ export default function PoolItem({ item, poolId }) {
   const addedByName = isOurs ? "You" : item.addedByName || "Friend";
   const initials = addedByName.charAt(0).toUpperCase();
 
-  // Set styles based on who added it
   const avatarColor = isOurs
     ? "bg-blue-500 text-white"
     : "bg-gray-500 text-white";

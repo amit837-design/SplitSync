@@ -4,7 +4,7 @@ import Dashboard from "../components/Dashboard";
 import PoolItem from "../components/PoolItem";
 import AddPoolModal from "../components/AddPoolModal";
 import DeleteAccountModal from "../components/DeleteAccountModal";
-import InfoModal from "../components/InfoModal"; // <-- 1. IMPORT
+import InfoModal from "../components/InfoModal";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../firebase";
 import {
@@ -34,15 +34,14 @@ export default function Home() {
   const [deleteError, setDeleteError] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // --- 2. ADD NEW STATE ---
   const [successMessage, setSuccessMessage] = useState("");
 
   const { currentUser, deleteUserAccount } = useAuth();
 
-  // (getPoolId function is unchanged)
+  // (getPoolId function)
   const getPoolId = (uid1, uid2) => [uid1, uid2].sort().join("_");
 
-  // --- 3. MODIFY handleAddFriend ---
+  // --- handleAddFriend ---
   const handleAddFriend = async (e) => {
     e.preventDefault();
     if (!currentUser) return setFriendError("You must be logged in.");
@@ -85,14 +84,13 @@ export default function Home() {
       });
 
       setFriendEmail("");
-      // --- HERE is the change ---
-      setSuccessMessage("Friend request sent!"); // <-- Replaces alert()
+      setSuccessMessage("Friend request sent!"); // <-- Replacing the alert()
     } catch (err) {
       setFriendError("Failed to send request. " + err.message);
     }
   };
 
-  // (useEffect for pool updates is unchanged)
+  // (useEffect for pool updates)
   useEffect(() => {
     if (!selectedFriend || !currentUser) {
       setExpenses([]);
@@ -115,7 +113,7 @@ export default function Home() {
     return () => unsubscribe();
   }, [selectedFriend, currentUser]);
 
-  // (Delete modal handlers are unchanged)
+  // (Delete modal handlers)
   const handleOpenDeleteModal = () => {
     setDeleteError("");
     setIsDeleteModalOpen(true);
@@ -138,7 +136,7 @@ export default function Home() {
       return <Dashboard onOpenDeleteModal={handleOpenDeleteModal} />;
     }
 
-    // (Pool View render is unchanged)
+    // (Pool View render)
     return (
       <div className="p-4 md:p-8">
         <div className="p-4 mb-6 bg-white rounded-lg shadow-md dark:bg-gray-800">
@@ -215,7 +213,7 @@ export default function Home() {
 
   return (
     <div className="relative h-screen w-full overflow-hidden">
-      {/* (Main content, sidebar, and floating button are unchanged) */}
+      {/* (Main content, sidebar, and floating button) */}
       <motion.main
         animate={{ filter: isSidebarOpen ? "blur(5px)" : "blur(0px)" }}
         transition={{ duration: 0.3 }}
@@ -261,7 +259,7 @@ export default function Home() {
         <ChevronRight size={22} />
       </button>
 
-      {/* (AddPoolModal and DeleteAccountModal are unchanged) */}
+      {/* (AddPoolModal and DeleteAccountModal) */}
       <AddPoolModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -277,7 +275,6 @@ export default function Home() {
         error={deleteError}
       />
 
-      {/* --- 4. RENDER THE NEW MODAL --- */}
       <InfoModal
         isOpen={!!successMessage} // Show modal if successMessage is not empty
         onClose={() => setSuccessMessage("")} // Clear message on close

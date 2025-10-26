@@ -3,16 +3,15 @@ import { useAuth } from "../context/AuthContext";
 import { db } from "../firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { AlertTriangle } from "lucide-react";
-// DELETED: import DeleteAccountModal from "./DeleteAccountModal";
 
-// NEW: Accept 'onOpenDeleteModal' as a prop
+//Accept 'onOpenDeleteModal' as a prop
 export default function Dashboard({ onOpenDeleteModal }) {
   const {
     currentUser,
     updateProfileName,
     acceptFriendRequest,
     declineFriendRequest,
-  } = useAuth(); // DELETED: deleteUserAccount (Home will handle it)
+  } = useAuth();
 
   const [name, setName] = useState(currentUser?.name || "");
   const [loading, setLoading] = useState(false);
@@ -21,9 +20,7 @@ export default function Dashboard({ onOpenDeleteModal }) {
   const [requests, setRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
 
-  // DELETED: All 'delete' related state (isDeleteModalOpen, deleteError, deleteLoading)
-
-  // (useEffect for fetching requests is unchanged)
+  // (useEffect for fetching requests)
   useEffect(() => {
     if (
       !currentUser?.pendingRequests ||
@@ -51,7 +48,7 @@ export default function Dashboard({ onOpenDeleteModal }) {
     fetchRequests();
   }, [currentUser?.pendingRequests]);
 
-  // (handleProfileSubmit is unchanged)
+  // (handleProfileSubmit)
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
     if (name === currentUser.name && !message) {
@@ -68,7 +65,7 @@ export default function Dashboard({ onOpenDeleteModal }) {
     setLoading(false);
   };
 
-  // (handleAccept is unchanged)
+  // (handleAccept)
   const handleAccept = async (friendUid) => {
     try {
       await acceptFriendRequest(friendUid);
@@ -77,7 +74,7 @@ export default function Dashboard({ onOpenDeleteModal }) {
     }
   };
 
-  // (handleDecline is unchanged)
+  // (handleDecline)
   const handleDecline = async (friendUid) => {
     try {
       await declineFriendRequest(friendUid);
@@ -86,14 +83,10 @@ export default function Dashboard({ onOpenDeleteModal }) {
     }
   };
 
-  // DELETED: handleConfirmDelete function
-
-  // NOTE: We don't need <></> wrapper anymore
   return (
     <div className="p-4 md:p-8">
-      {/* Profile Update Card (unchanged) */}
+      {/* Profile Update Card*/}
       <div className="max-w-xl p-6 mx-auto mb-8 bg-white rounded-lg shadow-md dark:bg-gray-800">
-        {/* ... (all profile form code is unchanged) ... */}
         <h2 className="mb-6 text-2xl font-bold">Profile Dashboard</h2>
         {message && (
           <div
@@ -142,9 +135,8 @@ export default function Dashboard({ onOpenDeleteModal }) {
         </form>
       </div>
 
-      {/* Friend Requests Card (unchanged) */}
+      {/* Friend Requests Card */}
       <div className="max-w-xl p-6 mx-auto mb-8 bg-white rounded-lg shadow-md dark:bg-gray-800">
-        {/* ... (all friend request code is unchanged) ... */}
         <h2 className="mb-6 text-2xl font-bold">Friend Requests</h2>
         {loadingRequests ? (
           <p className="text-gray-500 dark:text-gray-400">
@@ -187,7 +179,7 @@ export default function Dashboard({ onOpenDeleteModal }) {
         )}
       </div>
 
-      {/* --- DANGER ZONE CARD (MODIFIED) --- */}
+      {/* --- DANGER ZONE DELETION CARD --- */}
       <div className="max-w-xl p-6 mx-auto bg-white border-2 border-red-500 rounded-lg shadow-md dark:bg-gray-800 dark:border-red-600">
         <h2 className="mb-4 text-2xl font-bold text-red-600 dark:text-red-500">
           Danger Zone
@@ -199,9 +191,9 @@ export default function Dashboard({ onOpenDeleteModal }) {
               This action is permanent and cannot be undone.
             </p>
           </div>
-          {/* MODIFIED: This button now calls the prop */}
+          {/*calls the prop */}
           <button
-            onClick={onOpenDeleteModal}
+            onClick={onOpenDeleteModal} // <-- Calls the function from props
             className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 dark:bg-red-700 dark:hover:bg-red-800"
           >
             <span className="flex items-center justify-center gap-2">

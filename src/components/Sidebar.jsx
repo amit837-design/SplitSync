@@ -2,13 +2,13 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import {
-  ChevronLeft, // For the close button
+  ChevronLeft, 
   User,
   LogOut,
   Users,
   LayoutDashboard,
 } from "lucide-react";
-import { db } from "../firebase"; // Import Firestore db
+import { db } from "../firebase"; 
 import { collection, query, where, getDocs } from "firebase/firestore"; // Import query tools
 
 export default function Sidebar({
@@ -17,7 +17,7 @@ export default function Sidebar({
   onSelectFriend,
   isOpen, // This prop is used by Home.jsx
   setIsOpen, // This prop is used by Home.jsx
-  selectedFriend, // New prop
+  selectedFriend, 
 }) {
   const { currentUser, logout } = useAuth();
   const [friendsList, setFriendsList] = useState([]);
@@ -48,7 +48,7 @@ export default function Sidebar({
     }
   }, [currentUser?.friends]); // Re-run when the friends list changes
 
-  // Variants for the text, to fade in/out (no width animation)
+  // Variants for the text, to fade in/out
   const textVariants = {
     open: { opacity: 1, x: 0, display: "block" },
     closed: { opacity: 0, x: -10, display: "none" },

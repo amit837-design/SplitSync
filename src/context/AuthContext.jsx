@@ -5,7 +5,8 @@ import {
   signOut,
   onAuthStateChanged,
   updateProfile,
-  deleteUser, // <-- Import deleteUser
+  sendEmailVerification,
+  deleteUser,
 } from "firebase/auth";
 import { auth, db } from "../firebase";
 import {
@@ -18,7 +19,7 @@ import {
   arrayUnion,
   arrayRemove,
   onSnapshot,
-  deleteDoc, // <-- Import deleteDoc
+  deleteDoc,
 } from "firebase/firestore";
 
 const AuthContext = createContext();
@@ -31,7 +32,7 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // (signup function is unchanged)
+  // Sign up and create user doc in Firestore
   const signup = async (email, password, name) => {
     const userCredential = await createUserWithEmailAndPassword(
       auth,
@@ -40,6 +41,10 @@ export const AuthProvider = ({ children }) => {
     );
     const user = userCredential.user;
     await updateProfile(user, { displayName: name });
+
+    await sendEmailVerification(user); // <-- SENDS THE EMAIL
+
+    // Create a new user document in Firestore with new fields
     await setDoc(doc(db, "users", user.uid), {
       uid: user.uid,
       name: name,
@@ -51,27 +56,29 @@ export const AuthProvider = ({ children }) => {
     return userCredential;
   };
 
-  // (login function is unchanged)
+  // Sign in
   const login = (email, password) => {
     return signInWithEmailAndPassword(auth, email, password);
   };
 
-  // (logout function is unchanged)
+  // Log out
   const logout = () => {
     return signOut(auth);
   };
 
-  // (updateProfileName function is unchanged)
+  // Update profile name
   const updateProfileName = async (name) => {
     const user = auth.currentUser;
     if (!user) throw new Error("No user is logged in.");
     if (!currentUser) throw new Error("User data not loaded.");
+
     const nameLastUpdatedAt = currentUser.nameLastUpdatedAt;
     if (nameLastUpdatedAt) {
       const lastUpdateDate = nameLastUpdatedAt.toDate();
       const now = new Date();
       const diffTime = Math.abs(now.getTime() - lastUpdateDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
       if (diffDays <= 29) {
         const daysRemaining = 29 - diffDays;
         throw new Error(
@@ -100,11 +107,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // (acceptFriendRequest function is unchanged)
+  // Accept Friend Request
   const acceptFriendRequest = async (friendUid) => {
     if (!currentUser) return;
     const myDocRef = doc(db, "users", currentUser.uid);
     const friendDocRef = doc(db, "users", friendUid);
+
     await updateDoc(myDocRef, {
       friends: arrayUnion(friendUid),
       pendingRequests: arrayRemove(friendUid),
@@ -113,6 +121,7 @@ export const AuthProvider = ({ children }) => {
       friends: arrayUnion(currentUser.uid),
       sentRequests: arrayRemove(currentUser.uid),
     });
+
     setCurrentUser((prev) => ({
       ...prev,
       friends: [...(prev.friends || []), friendUid],
@@ -122,17 +131,19 @@ export const AuthProvider = ({ children }) => {
     }));
   };
 
-  // (declineFriendRequest function is unchanged)
+  // Decline Friend Request
   const declineFriendRequest = async (friendUid) => {
     if (!currentUser) return;
     const myDocRef = doc(db, "users", currentUser.uid);
     const friendDocRef = doc(db, "users", friendUid);
+
     await updateDoc(myDocRef, {
       pendingRequests: arrayRemove(friendUid),
     });
     await updateDoc(friendDocRef, {
       sentRequests: arrayRemove(currentUser.uid),
     });
+
     setCurrentUser((prev) => ({
       ...prev,
       pendingRequests: (prev.pendingRequests || []).filter(
@@ -141,17 +152,14 @@ export const AuthProvider = ({ children }) => {
     }));
   };
 
-  // --- NEW FUNCTION: DELETE USER ACCOUNT ---
+  // Delete User Account
   const deleteUserAccount = async () => {
     const user = auth.currentUser;
     if (!user) throw new Error("No user is logged in.");
 
     try {
-      // 1. Delete Firestore document
       const userDocRef = doc(db, "users", user.uid);
       await deleteDoc(userDocRef);
-
-      // 2. Delete Auth user
       await deleteUser(user);
     } catch (error) {
       console.error("Error deleting user account:", error);
@@ -164,7 +172,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // (useEffect for onAuthStateChanged is unchanged)
+  // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -186,7 +194,6 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  // --- ADDED deleteUserAccount TO VALUE ---
   const value = {
     currentUser,
     signup,
