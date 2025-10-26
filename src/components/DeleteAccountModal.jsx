@@ -1,14 +1,22 @@
-import React from "react";
+import React, { useState } from "react"; // <-- Import useState
 import { motion, AnimatePresence } from "framer-motion";
 import { X, AlertTriangle } from "lucide-react";
 
 export default function DeleteAccountModal({
   isOpen,
   onClose,
-  onConfirmDelete,
+  onConfirmDelete, // This prop will now receive the password
   loading,
   error,
 }) {
+  // --- ADD THIS STATE ---
+  const [password, setPassword] = useState("");
+
+  // This wrapper function passes the password back to Home.jsx
+  const handleConfirm = () => {
+    onConfirmDelete(password);
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -43,10 +51,22 @@ export default function DeleteAccountModal({
               </div>
 
               <h3 className="mt-4 mb-2 text-xl font-semibold">Are you sure?</h3>
-              <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-                This will permanently delete your account, your user data, and
-                all shared pool history. This action cannot be undone.
+              <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                This action is permanent and cannot be undone. To confirm,
+                please enter your password.
               </p>
+
+              {/* --- ADD THIS PASSWORD FIELD --- */}
+              <div className="w-full mb-4">
+                <input
+                  type="password"
+                  id="delete-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                  placeholder="Enter your password"
+                />
+              </div>
 
               {error && (
                 <div className="p-3 mb-4 w-full text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800">
@@ -63,8 +83,8 @@ export default function DeleteAccountModal({
                   Cancel
                 </button>
                 <button
-                  onClick={onConfirmDelete}
-                  disabled={loading}
+                  onClick={handleConfirm} // <-- Use the new wrapper function
+                  disabled={loading || !password} // <-- Disable if no password
                   className="w-full px-5 py-2.5 text-sm font-medium text-center text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
                 >
                   {loading ? "Deleting..." : "Delete Account"}

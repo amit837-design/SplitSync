@@ -1,12 +1,37 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react"; // <-- Import useEffect
 import { useAuth } from "../context/AuthContext";
 import { auth } from "../firebase";
 import { sendEmailVerification } from "firebase/auth";
+// You may need to import useNavigate if you prefer it over reload
+// import { useNavigate } from "react-router-dom";
 
 export default function VerifyEmail() {
-  const { logout } = useAuth();
+  const { logout, currentUser } = useAuth(); // <-- Get currentUser
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  // const navigate = useNavigate();
+
+  // --- ADD THIS useEffect HOOK ---
+  // This hook will poll for email verification
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const interval = setInterval(async () => {
+      // Reload the user's auth state from Firebase
+      await currentUser.reload();
+
+      // Check if the user object in the auth instance is now verified
+      if (auth.currentUser.emailVerified) {
+        clearInterval(interval);
+        // Force a full page reload to reset the AuthContext and pass ProtectedRoute
+        window.location.reload();
+        // Or, if you find reload aggressive, try: navigate("/");
+      }
+    }, 3000); // Check every 3 seconds
+
+    // Cleanup: stop polling when the component unmounts
+    return () => clearInterval(interval);
+  }, [currentUser]); // Add navigate to dependency array if you use it
 
   const handleResend = async () => {
     setLoading(true);
@@ -23,17 +48,14 @@ export default function VerifyEmail() {
 
   return (
     <div className="flex items-center justify-center min-h-full p-4">
-      <div className="w-full max-w-md p-8 space-y-3 text-center bg-white rounded-lg shadow-md dark:bg-gray-800">
+      <div className="w-full max-w-md p-8 space-y-6 text-center bg-white rounded-lg shadow-md dark:bg-gray-800">
         <h2 className="text-2xl font-bold">Verify Your Email</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-gray-600 dark:text-gray-400">
           A verification link has been sent to your email address. Please click
           the link to activate your account.
         </p>
         <p className="text-sm text-gray-500">
-          (Note: You may need to refresh the page after verifying.)
-        </p>
-        <p className="font-bold text-sm">
-          Don't forget to check your spam folder
+          This page will automatically refresh once you are verified.
         </p>
 
         {message && (

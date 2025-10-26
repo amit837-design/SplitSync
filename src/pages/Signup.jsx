@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { Eye, EyeOff } from "lucide-react"; // <-- Import icons
 
 export default function Signup() {
   const [name, setName] = useState("");
@@ -8,6 +9,7 @@ export default function Signup() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // <-- State for icon
   const { signup } = useAuth();
   const navigate = useNavigate();
 
@@ -20,7 +22,8 @@ export default function Signup() {
       setError("");
       setLoading(true);
       await signup(email, password, name);
-      navigate("/");
+      // After signup, user is in "verify" state, so we redirect
+      navigate("/verify-email");
     } catch (err) {
       setError("Failed to create an account. " + err.message);
     }
@@ -66,6 +69,7 @@ export default function Signup() {
               required
             />
           </div>
+          {/* --- MODIFIED PASSWORD INPUT --- */}
           <div>
             <label
               htmlFor="password"
@@ -73,15 +77,25 @@ export default function Signup() {
             >
               Password
             </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
-              required
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"} // <-- Dynamic type
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
+                required
+              />
+              <button // <-- SHOW/HIDE BUTTON
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 dark:text-gray-400"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
           </div>
+          {/* --- END OF MODIFICATION --- */}
           <button
             disabled={loading}
             type="submit"

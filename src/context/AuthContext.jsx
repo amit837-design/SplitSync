@@ -7,6 +7,7 @@ import {
   updateProfile,
   sendEmailVerification,
   deleteUser,
+  sendPasswordResetEmail, // <-- 1. IMPORT THIS
 } from "firebase/auth";
 import { auth, db } from "../firebase";
 import {
@@ -32,7 +33,9 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Sign up and create user doc in Firestore
+  // (signup, login, logout, updateProfileName, friend requests, deleteUserAccount...
+  // ... all your other functions remain unchanged)
+
   const signup = async (email, password, name) => {
     const userCredential = await createUserWithEmailAndPassword(
       auth,
@@ -41,10 +44,7 @@ export const AuthProvider = ({ children }) => {
     );
     const user = userCredential.user;
     await updateProfile(user, { displayName: name });
-
-    await sendEmailVerification(user); // <-- SENDS THE EMAIL
-
-    // Create a new user document in Firestore with new fields
+    await sendEmailVerification(user);
     await setDoc(doc(db, "users", user.uid), {
       uid: user.uid,
       name: name,
@@ -56,29 +56,24 @@ export const AuthProvider = ({ children }) => {
     return userCredential;
   };
 
-  // Sign in
   const login = (email, password) => {
     return signInWithEmailAndPassword(auth, email, password);
   };
 
-  // Log out
   const logout = () => {
     return signOut(auth);
   };
 
-  // Update profile name
   const updateProfileName = async (name) => {
     const user = auth.currentUser;
     if (!user) throw new Error("No user is logged in.");
     if (!currentUser) throw new Error("User data not loaded.");
-
     const nameLastUpdatedAt = currentUser.nameLastUpdatedAt;
     if (nameLastUpdatedAt) {
       const lastUpdateDate = nameLastUpdatedAt.toDate();
       const now = new Date();
       const diffTime = Math.abs(now.getTime() - lastUpdateDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
       if (diffDays <= 29) {
         const daysRemaining = 29 - diffDays;
         throw new Error(
@@ -107,12 +102,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Accept Friend Request
   const acceptFriendRequest = async (friendUid) => {
     if (!currentUser) return;
     const myDocRef = doc(db, "users", currentUser.uid);
     const friendDocRef = doc(db, "users", friendUid);
-
     await updateDoc(myDocRef, {
       friends: arrayUnion(friendUid),
       pendingRequests: arrayRemove(friendUid),
@@ -121,7 +114,6 @@ export const AuthProvider = ({ children }) => {
       friends: arrayUnion(currentUser.uid),
       sentRequests: arrayRemove(currentUser.uid),
     });
-
     setCurrentUser((prev) => ({
       ...prev,
       friends: [...(prev.friends || []), friendUid],
@@ -131,19 +123,16 @@ export const AuthProvider = ({ children }) => {
     }));
   };
 
-  // Decline Friend Request
   const declineFriendRequest = async (friendUid) => {
     if (!currentUser) return;
     const myDocRef = doc(db, "users", currentUser.uid);
     const friendDocRef = doc(db, "users", friendUid);
-
     await updateDoc(myDocRef, {
       pendingRequests: arrayRemove(friendUid),
     });
     await updateDoc(friendDocRef, {
       sentRequests: arrayRemove(currentUser.uid),
     });
-
     setCurrentUser((prev) => ({
       ...prev,
       pendingRequests: (prev.pendingRequests || []).filter(
@@ -152,11 +141,9 @@ export const AuthProvider = ({ children }) => {
     }));
   };
 
-  // Delete User Account
   const deleteUserAccount = async () => {
     const user = auth.currentUser;
     if (!user) throw new Error("No user is logged in.");
-
     try {
       const userDocRef = doc(db, "users", user.uid);
       await deleteDoc(userDocRef);
@@ -172,7 +159,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Listen for auth state changes
+  // --- 2. ADD THIS NEW FUNCTION ---
+  const resetPassword = (email) => {
+    return sendPasswordResetEmail(auth, email);
+  };
+
+  // (useEffect for onAuthStateChanged is unchanged)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -203,6 +195,7 @@ export const AuthProvider = ({ children }) => {
     acceptFriendRequest,
     declineFriendRequest,
     deleteUserAccount,
+    resetPassword, // <-- 3. ADD IT TO THE VALUE
   };
 
   return (

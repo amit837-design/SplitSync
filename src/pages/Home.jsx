@@ -7,6 +7,11 @@ import DeleteAccountModal from "../components/DeleteAccountModal";
 import InfoModal from "../components/InfoModal";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../firebase";
+import { auth } from "../firebase"; // <-- IMPORT AUTH
+import {
+  EmailAuthProvider, // <-- IMPORT
+  reauthenticateWithCredential, // <-- IMPORT
+} from "firebase/auth";
 import {
   collection,
   query,
@@ -21,6 +26,7 @@ import { Plus, UserPlus, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Home() {
+  // (All your existing state is unchanged)
   const [activeView, setActiveView] = useState("pools");
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [poolId, setPoolId] = useState(null);
@@ -29,19 +35,15 @@ export default function Home() {
   const [friendEmail, setFriendEmail] = useState("");
   const [friendError, setFriendError] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
-
   const [successMessage, setSuccessMessage] = useState("");
 
   const { currentUser, deleteUserAccount } = useAuth();
 
-  // (getPoolId function)
+  // (handleAddFriend and getPoolId are unchanged)
   const getPoolId = (uid1, uid2) => [uid1, uid2].sort().join("_");
-
-  // --- handleAddFriend ---
   const handleAddFriend = async (e) => {
     e.preventDefault();
     if (!currentUser) return setFriendError("You must be logged in.");
@@ -49,18 +51,14 @@ export default function Home() {
       return setFriendError("You cannot add yourself as a friend.");
     }
     setFriendError("");
-
     try {
       const usersRef = collection(db, "users");
       const q = query(usersRef, where("email", "==", friendEmail));
       const querySnapshot = await getDocs(q);
-
       if (querySnapshot.empty) {
         return setFriendError("User not found.");
       }
-
       const friendData = querySnapshot.docs[0].data();
-
       if (currentUser.friends?.includes(friendData.uid)) {
         return setFriendError("You are already friends.");
       }
@@ -72,25 +70,22 @@ export default function Home() {
           "This user has already sent you a request. Check your dashboard!"
         );
       }
-
       const myDocRef = doc(db, "users", currentUser.uid);
       await updateDoc(myDocRef, {
         sentRequests: arrayUnion(friendData.uid),
       });
-
       const friendDocRef = doc(db, "users", friendData.uid);
       await updateDoc(friendDocRef, {
         pendingRequests: arrayUnion(currentUser.uid),
       });
-
       setFriendEmail("");
-      setSuccessMessage("Friend request sent!"); // <-- Replacing the alert()
+      setSuccessMessage("Friend request sent!");
     } catch (err) {
       setFriendError("Failed to send request. " + err.message);
     }
   };
 
-  // (useEffect for pool updates)
+  // (useEffect for pool updates is unchanged)
   useEffect(() => {
     if (!selectedFriend || !currentUser) {
       setExpenses([]);
@@ -113,30 +108,48 @@ export default function Home() {
     return () => unsubscribe();
   }, [selectedFriend, currentUser]);
 
-  // (Delete modal handlers)
+  // (handleOpenDeleteModal is unchanged)
   const handleOpenDeleteModal = () => {
     setDeleteError("");
     setIsDeleteModalOpen(true);
   };
 
-  const handleConfirmDelete = async () => {
+  // --- MODIFIED: This function now handles re-authentication ---
+  const handleConfirmDelete = async (password) => {
     setDeleteError("");
     setDeleteLoading(true);
+
     try {
+      // 1. Get the current user from auth (not context)
+      const user = auth.currentUser;
+      if (!user) throw new Error("No user found.");
+
+      // 2. Create the credential
+      const credential = EmailAuthProvider.credential(user.email, password);
+
+      // 3. Re-authenticate
+      await reauthenticateWithCredential(user, credential);
+
+      // 4. If successful, THEN call the delete function
       await deleteUserAccount();
+
       setIsDeleteModalOpen(false);
+      // No need to redirect, auth listener will do it
     } catch (err) {
-      setDeleteError(`Failed to delete account. ${err.message}`);
+      if (err.code === "auth/wrong-password") {
+        setDeleteError("Wrong password. Please try again.");
+      } else {
+        setDeleteError(`Failed to delete account. ${err.message}`);
+      }
     }
     setDeleteLoading(false);
   };
 
+  // (renderContent is unchanged)
   const renderContent = () => {
     if (activeView === "dashboard") {
       return <Dashboard onOpenDeleteModal={handleOpenDeleteModal} />;
     }
-
-    // (Pool View render)
     return (
       <div className="p-4 md:p-8">
         <div className="p-4 mb-6 bg-white rounded-lg shadow-md dark:bg-gray-800">
@@ -188,7 +201,6 @@ export default function Home() {
                 <Plus size={16} /> Add Expense
               </button>
             </div>
-
             <div className="max-w-xl mx-auto">
               {expenses.length > 0 ? (
                 expenses.map((item) => (
@@ -211,9 +223,9 @@ export default function Home() {
     );
   };
 
+  // (The main return block with UI is unchanged)
   return (
     <div className="relative h-screen w-full overflow-hidden">
-      {/* (Main content, sidebar, and floating button) */}
       <motion.main
         animate={{ filter: isSidebarOpen ? "blur(5px)" : "blur(0px)" }}
         transition={{ duration: 0.3 }}
@@ -259,7 +271,6 @@ export default function Home() {
         <ChevronRight size={22} />
       </button>
 
-      {/* (AddPoolModal and DeleteAccountModal) */}
       <AddPoolModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -276,8 +287,8 @@ export default function Home() {
       />
 
       <InfoModal
-        isOpen={!!successMessage} // Show modal if successMessage is not empty
-        onClose={() => setSuccessMessage("")} // Clear message on close
+        isOpen={!!successMessage}
+        onClose={() => setSuccessMessage("")}
         message={successMessage}
       />
     </div>
