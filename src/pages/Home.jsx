@@ -5,13 +5,10 @@ import PoolItem from "../components/PoolItem";
 import AddPoolModal from "../components/AddPoolModal";
 import DeleteAccountModal from "../components/DeleteAccountModal";
 import InfoModal from "../components/InfoModal";
+import ChatWindow from "../components/ChatWindow";
 import { useAuth } from "../context/AuthContext";
-import { db } from "../firebase";
-import { auth } from "../firebase"; // <-- IMPORT AUTH
-import {
-  EmailAuthProvider, // <-- IMPORT
-  reauthenticateWithCredential, // <-- IMPORT
-} from "firebase/auth";
+import { db, auth } from "../firebase";
+import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import {
   collection,
   query,
@@ -22,11 +19,11 @@ import {
   updateDoc,
   arrayUnion,
 } from "firebase/firestore";
-import { Plus, UserPlus, ChevronRight } from "lucide-react";
+// --- CHANGE 1: Replaced 'Menu' with 'ChevronRight' ---
+import { Plus, UserPlus, MessageCircle, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Home() {
-  // (All your existing state is unchanged)
   const [activeView, setActiveView] = useState("pools");
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [poolId, setPoolId] = useState(null);
@@ -39,11 +36,12 @@ export default function Home() {
   const [deleteError, setDeleteError] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [chattingWith, setChattingWith] = useState(null);
 
   const { currentUser, deleteUserAccount } = useAuth();
 
-  // (handleAddFriend and getPoolId are unchanged)
   const getPoolId = (uid1, uid2) => [uid1, uid2].sort().join("_");
+
   const handleAddFriend = async (e) => {
     e.preventDefault();
     if (!currentUser) return setFriendError("You must be logged in.");
@@ -51,14 +49,18 @@ export default function Home() {
       return setFriendError("You cannot add yourself as a friend.");
     }
     setFriendError("");
+
     try {
       const usersRef = collection(db, "users");
       const q = query(usersRef, where("email", "==", friendEmail));
       const querySnapshot = await getDocs(q);
+
       if (querySnapshot.empty) {
         return setFriendError("User not found.");
       }
+
       const friendData = querySnapshot.docs[0].data();
+
       if (currentUser.friends?.includes(friendData.uid)) {
         return setFriendError("You are already friends.");
       }
@@ -70,14 +72,17 @@ export default function Home() {
           "This user has already sent you a request. Check your dashboard!"
         );
       }
+
       const myDocRef = doc(db, "users", currentUser.uid);
       await updateDoc(myDocRef, {
         sentRequests: arrayUnion(friendData.uid),
       });
+
       const friendDocRef = doc(db, "users", friendData.uid);
       await updateDoc(friendDocRef, {
         pendingRequests: arrayUnion(currentUser.uid),
       });
+
       setFriendEmail("");
       setSuccessMessage("Friend request sent!");
     } catch (err) {
@@ -85,9 +90,8 @@ export default function Home() {
     }
   };
 
-  // (useEffect for pool updates is unchanged)
   useEffect(() => {
-    if (!selectedFriend || !currentUser) {
+    if (!selectedFriend || !currentUser || activeView !== "pools") {
       setExpenses([]);
       return;
     }
@@ -106,35 +110,23 @@ export default function Home() {
       }
     });
     return () => unsubscribe();
-  }, [selectedFriend, currentUser]);
+  }, [selectedFriend, currentUser, activeView]);
 
-  // (handleOpenDeleteModal is unchanged)
   const handleOpenDeleteModal = () => {
     setDeleteError("");
     setIsDeleteModalOpen(true);
   };
 
-  // --- MODIFIED: This function now handles re-authentication ---
   const handleConfirmDelete = async (password) => {
     setDeleteError("");
     setDeleteLoading(true);
-
     try {
-      // 1. Get the current user from auth (not context)
       const user = auth.currentUser;
       if (!user) throw new Error("No user found.");
-
-      // 2. Create the credential
       const credential = EmailAuthProvider.credential(user.email, password);
-
-      // 3. Re-authenticate
       await reauthenticateWithCredential(user, credential);
-
-      // 4. If successful, THEN call the delete function
       await deleteUserAccount();
-
       setIsDeleteModalOpen(false);
-      // No need to redirect, auth listener will do it
     } catch (err) {
       if (err.code === "auth/wrong-password") {
         setDeleteError("Wrong password. Please try again.");
@@ -145,131 +137,198 @@ export default function Home() {
     setDeleteLoading(false);
   };
 
-  // (renderContent is unchanged)
-  const renderContent = () => {
-    if (activeView === "dashboard") {
-      return <Dashboard onOpenDeleteModal={handleOpenDeleteModal} />;
-    }
-    return (
-      <div className="p-4 md:p-8">
-        <div className="p-4 mb-6 bg-white rounded-lg shadow-md dark:bg-gray-800">
-          <h3 className="mb-2 font-semibold">Send a Friend Request</h3>
-          <form onSubmit={handleAddFriend} className="flex gap-2">
-            <input
-              type="email"
-              value={friendEmail}
-              onChange={(e) => setFriendEmail(e.target.value)}
-              placeholder="Friend's email"
-              className="flex-1 p-2.5 bg-gray-50 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600"
-            />
-            <button
-              type="submit"
-              className="p-2.5 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-            >
-              <UserPlus size={20} />
-            </button>
-          </form>
-          {friendError && (
-            <p className="mt-2 text-sm text-red-500">{friendError}</p>
-          )}
-          {!selectedFriend && (
-            <button
-              onClick={() =>
-                setSelectedFriend({
-                  uid: "REPLACE_WITH_FRIEND_UID",
-                  email: "friend@example.com",
-                  name: "Test Friend",
-                })
-              }
-              className="px-4 py-2 mt-3 text-sm text-white bg-gray-500 rounded-lg"
-            >
-              Test: Select Friend
-            </button>
-          )}
-        </div>
-
-        {selectedFriend ? (
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold">
-                Pool with {selectedFriend.name}
-              </h2>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-              >
-                <Plus size={16} /> Add Expense
-              </button>
-            </div>
-            <div className="max-w-xl mx-auto">
-              {expenses.length > 0 ? (
-                expenses.map((item) => (
-                  <PoolItem key={item.id} item={item} poolId={poolId} />
-                ))
-              ) : (
-                <div className="py-10 text-center text-gray-500 dark:text-gray-400">
-                  <p>No expenses shared yet.</p>
-                  <p>Click "Add Expense" to start a pool!</p>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="py-10 text-center text-gray-500 dark:text-gray-400">
-            <p>Select a friend from the sidebar to view your expense pool.</p>
-          </div>
-        )}
-      </div>
-    );
+  const handleCloseChat = () => {
+    setChattingWith(null);
+    setSelectedFriend(null);
+    setActiveView("pools");
   };
 
-  // (The main return block with UI is unchanged)
-  return (
-    <div className="relative h-screen w-full overflow-hidden">
-      <motion.main
-        animate={{ filter: isSidebarOpen ? "blur(5px)" : "blur(0px)" }}
-        transition={{ duration: 0.3 }}
-        className="w-full h-full overflow-y-auto"
-      >
-        {renderContent()}
-      </motion.main>
+  const sidebarVariants = {
+    open: { x: 0 },
+    closed: { x: "-100%" },
+  };
 
+  useEffect(() => {
+    if (window.innerWidth >= 1024) {
+      setIsSidebarOpen(true);
+    }
+  }, []);
+
+  const renderContent = () => {
+    switch (activeView) {
+      case "dashboard":
+        return <Dashboard onOpenDeleteModal={handleOpenDeleteModal} />;
+      case "chat":
+        if (!chattingWith) {
+          setActiveView("pools");
+          return (
+            <p className="p-4 text-center text-red-500">
+              Error: No chat selected.
+            </p>
+          );
+        }
+        return (
+          <div className="h-full flex flex-col">
+            <ChatWindow friend={chattingWith} onCloseChat={handleCloseChat} />
+          </div>
+        );
+      case "pools":
+      default:
+        return (
+          <div className="p-4 md:p-8">
+            {!selectedFriend && (
+              <div className="p-4 mb-6 bg-white rounded-lg shadow-md dark:bg-gray-800">
+                <h3 className="mb-2 font-semibold">Send a Friend Request</h3>
+                <form onSubmit={handleAddFriend} className="flex gap-2">
+                  <input
+                    type="email"
+                    value={friendEmail}
+                    onChange={(e) => setFriendEmail(e.target.value)}
+                    placeholder="Friend's email"
+                    className="flex-1 p-2.5 bg-gray-50 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                  />
+                  <button
+                    type="submit"
+                    className="p-2.5 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                  >
+                    <UserPlus size={20} />
+                  </button>
+                </form>
+                {friendError && (
+                  <p className="mt-2 text-sm text-red-500">{friendError}</p>
+                )}
+              </div>
+            )}
+
+            {selectedFriend ? (
+              <div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+                  <h2 className="text-xl sm:text-2xl font-bold text-center sm:text-left">
+                    Pool with {selectedFriend.name}
+                  </h2>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                    <button
+                      onClick={() => setIsModalOpen(true)}
+                      className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition"
+                    >
+                      <Plus size={16} /> Add Expense
+                    </button>
+                    <button
+                      onClick={() => {
+                        setChattingWith(selectedFriend);
+                        setActiveView("chat");
+                      }}
+                      className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition"
+                      aria-label={`Chat with ${selectedFriend.name}`}
+                    >
+                      <MessageCircle size={16} /> Chat
+                    </button>
+                  </div>
+                </div>
+
+                <div className="max-w-xl mx-auto">
+                  {expenses.length > 0 ? (
+                    expenses.map((item) => (
+                      <PoolItem key={item.id} item={item} poolId={poolId} />
+                    ))
+                  ) : (
+                    <div className="py-10 text-center text-gray-500 dark:text-gray-400">
+                      <p>No expenses shared yet.</p>
+                      <p>Click "Add Expense" to start a pool!</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              !chattingWith && (
+                <div className="py-10 text-center text-gray-500 dark:text-gray-400">
+                  <p>
+                    Select a friend from the sidebar to view their expense pool
+                    or start a chat.
+                  </p>
+                  <p className="text-sm">
+                    Or, go to Dashboard to manage friend requests.
+                  </p>
+                </div>
+              )
+            )}
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="relative h-screen w-full flex overflow-hidden">
+      {/* Sidebar for Desktop (always visible) */}
+      <div className="hidden lg:block flex-shrink-0">
+        <Sidebar
+          activeView={activeView}
+          setActiveView={setActiveView}
+          onSelectFriend={setSelectedFriend}
+          onSelectChatFriend={setChattingWith}
+          setIsOpen={setIsSidebarOpen}
+          selectedFriend={selectedFriend}
+          chattingWith={chattingWith}
+        />
+      </div>
+
+      {/* Sidebar for Mobile (sliding) */}
       <AnimatePresence>
         {isSidebarOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsSidebarOpen(false)}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+          <motion.div
+            className="absolute z-20 h-full lg:hidden"
+            initial="closed"
+            animate="open"
+            exit="closed"
+            variants={sidebarVariants}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            <Sidebar
+              activeView={activeView}
+              setActiveView={setActiveView}
+              onSelectFriend={setSelectedFriend}
+              onSelectChatFriend={setChattingWith}
+              setIsOpen={setIsSidebarOpen}
+              selectedFriend={selectedFriend}
+              chattingWith={chattingWith}
             />
-            <motion.div
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", stiffness: 120, damping: 20 }}
-              className="fixed top-0 left-0 z-50 h-full"
-            >
-              <Sidebar
-                activeView={activeView}
-                setActiveView={setActiveView}
-                onSelectFriend={setSelectedFriend}
-                isOpen={isSidebarOpen}
-                setIsOpen={setIsSidebarOpen}
-                selectedFriend={selectedFriend}
-              />
-            </motion.div>
-          </>
+          </motion.div>
         )}
       </AnimatePresence>
 
-      <button
-        onClick={() => setIsSidebarOpen(true)}
-        className="fixed bottom-5 left-5 z-30 p-3 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700"
-      >
-        <ChevronRight size={22} />
-      </button>
+      {/* Overlay for mobile */}
+      {isSidebarOpen && (
+        <div
+          onClick={() => setIsSidebarOpen(false)}
+          className="absolute inset-0 z-10 bg-black opacity-50 lg:hidden"
+        ></div>
+      )}
+
+      {/* Main Content */}
+      <main className="flex-grow h-full overflow-y-auto">
+        {/* --- CHANGE 2: Replaced button and moved to bottom-left --- */}
+        <AnimatePresence>
+          {!isSidebarOpen && (
+            <motion.div
+              className="absolute bottom-4 left-4 z-10 lg:hidden"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-2 bg-white rounded-full shadow dark:bg-gray-800"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {renderContent()}
+      </main>
 
       <AddPoolModal
         isOpen={isModalOpen}

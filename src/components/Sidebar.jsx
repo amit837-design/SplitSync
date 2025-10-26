@@ -2,13 +2,13 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import {
-  ChevronLeft, 
+  ChevronLeft,
   User,
   LogOut,
   Users,
   LayoutDashboard,
 } from "lucide-react";
-import { db } from "../firebase"; 
+import { db } from "../firebase";
 import { collection, query, where, getDocs } from "firebase/firestore"; // Import query tools
 
 export default function Sidebar({
@@ -17,7 +17,7 @@ export default function Sidebar({
   onSelectFriend,
   isOpen, // This prop is used by Home.jsx
   setIsOpen, // This prop is used by Home.jsx
-  selectedFriend, 
+  selectedFriend,
 }) {
   const { currentUser, logout } = useAuth();
   const [friendsList, setFriendsList] = useState([]);
@@ -59,7 +59,8 @@ export default function Sidebar({
     <li
       onClick={() => {
         setActiveView(view);
-        if (view === "dashboard") {
+        // Clear selected friend when going to Dashboard or to the top-level Pools view
+        if (view === "dashboard" || view === "pools") {
           onSelectFriend(null);
         }
         setIsOpen(false); // Close sidebar on selection
