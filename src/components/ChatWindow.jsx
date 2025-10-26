@@ -173,7 +173,7 @@ export default function ChatWindow({ friend, onCloseChat }) {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type your message..."
-              className="w-9/10 p-2.5 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-9/10 lg:w-full p-2.5 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               autoComplete="off"
               disabled={loading}
             />
